@@ -1,0 +1,96 @@
+# Arduino code 
+
+/*Turning relay channels On and Off*/
+
+
+/*-----( Import needed libraries )-----*/
+/*-----( Declare Constants )-----*/
+#define RELAY_ON 1
+#define RELAY_OFF 0
+
+/*-----( Declare objects )-----*/
+/*-----( Declare Variables )-----*/
+#define Relay_1  2  // Arduino Digital I/O pin number
+#define Relay_2  3
+#define Relay_3  4
+#define Relay_4  5
+#define Relay_5  6
+#define Relay_6  7
+#define Relay_7  8
+#define Relay_8  9
+
+#define DELAY 100
+
+void setup()   /****** SETUP: RUNS ONCE ******/
+{
+//-------( Initialize Pins so relays are inactive at reset)----
+  digitalWrite(Relay_1, RELAY_OFF);
+  digitalWrite(Relay_2, RELAY_OFF);
+  digitalWrite(Relay_3, RELAY_OFF);
+  digitalWrite(Relay_4, RELAY_OFF);
+  digitalWrite(Relay_5, RELAY_OFF);
+  digitalWrite(Relay_6, RELAY_OFF);
+  digitalWrite(Relay_7, RELAY_OFF);
+  digitalWrite(Relay_8, RELAY_OFF);
+ 
+  
+//---( THEN set pins as outputs )----  
+  pinMode(Relay_1, OUTPUT);   
+  pinMode(Relay_2, OUTPUT);  
+  pinMode(Relay_3, OUTPUT);  
+  pinMode(Relay_4, OUTPUT);
+  pinMode(Relay_5, OUTPUT);  
+  pinMode(Relay_6, OUTPUT);
+  pinMode(Relay_7, OUTPUT);
+  pinMode(Relay_8, OUTPUT);
+  
+  delay(DELAY); //Check that all relays are inactive at Reset
+
+  // Set up serial.
+  Serial.begin(9600); // set the baud rate
+  Serial.println("Ready"); // print "Ready" once
+}//--(end setup )---
+
+
+void loop()   /****** LOOP: RUNS CONSTANTLY ******/
+{
+  char inByte = ' ';
+  if(Serial.available()){ // only send data back if data has been sent
+    char inByte = Serial.read(); // read the incoming data
+    int _relay;
+    Serial.println(inByte); // send the data back in a new line so that it is not all one long line
+    
+    if(inByte==1){
+      _relay = Relay_1;
+    }
+    else if(inByte==2){
+      _relay = Relay_2;
+    }
+    else if(inByte==3){
+      _relay = Relay_3;
+    }
+    else if(inByte==4){
+      _relay = Relay_4;
+    }
+    else if(inByte==5){
+      _relay = Relay_5;
+    }
+    else if(inByte==6){
+      _relay = Relay_6;
+    }
+    else if(inByte==7){
+      _relay = Relay_7;
+    }
+    else if(inByte==8){
+      _relay = Relay_8;
+    }
+    digitalWrite(_relay, RELAY_ON);// set the Relay ON
+    delay(DELAY);
+    digitalWrite(_relay, RELAY_OFF);// set the Relay OFF
+  }
+  delay(DELAY); // delay for 1/10 of a second
+}//--(end main loop )---
+
+
+
+//*********( THE END )***********
