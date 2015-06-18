@@ -1,0 +1,403 @@
+from time import sleep
+import serial
+
+ser = serial.Serial('COM7', 9600)
+
+REF = 0
+DOWN = 1
+UP = 2
+SELECT = 3
+HOME = 4
+SHCK = 5
+CHRG = 6
+EUP = 7
+EDN = 8
+QA7 = 9
+QA5 = 11
+
+navigation = {
+    'menu': {
+        'comm': [UP, SELECT],
+        'battery': [(2, UP), SELECT],
+        'spo2': [(3, UP), SELECT],
+        'resp': [(4, UP), SELECT],
+        'nibp': [(5, UP), SELECT],
+        'temp': [(6, UP), SELECT],
+        'hr': [(7, UP), SELECT],
+        'ldsize': [(8, UP), SELECT],
+        'ldsource': [(9, UP), SELECT],
+        'statusqueue': [(10, UP), SELECT],
+        'datetime': [(11, UP), SELECT],
+    },
+
+    'setupmenus': {
+        'setup': [QA7, QA5],
+        'setupecg': [QA7, QA5, SELECT],
+        'setupnibp': [QA7, QA5, DOWN, SELECT],
+        'setupdisplayvolume': [QA7, QA5, (2, DOWN), SELECT],
+        'setupprinter': [QA7, QA5, (3, DOWN), SELECT],
+        'setuptrends': [QA7, QA5, (4, DOWN), SELECT],
+        'setupoperationaltests': [QA7, QA5, (5, DOWN), SELECT],
+        'setupdeviceinfo': [QA7, QA5, (6, DOWN), SELECT],
+        'setupsupervisor': [QA7, QA5, (7, DOWN), SELECT],
+        'supervisoralarms': [QA7, QA5, (7, DOWN), SELECT, SELECT],
+        'supervisorlog': [QA7, QA5, (7, DOWN), SELECT, DOWN, SELECT],
+        'supervisordefibpacer': [QA7, QA5, (7, DOWN), SELECT, (2, DOWN), SELECT],
+        'supervisorecg': [QA7, QA5, (7, DOWN), SELECT, (3, DOWN), SELECT],
+        'supervisornibp': [QA7, QA5, (7, DOWN), SELECT, (4, DOWN), SELECT],
+        'supervisorprinter': [QA7, QA5, (7, DOWN), SELECT, (5, DOWN), SELECT],
+        'supervisordispconfig': [QA7, QA5, (7, DOWN), SELECT, (6, DOWN), SELECT],
+        'supervisoraedadv': [QA7, QA5, (7, DOWN), SELECT, (7, DOWN), SELECT],
+        'supervisorcpr': [QA7, QA5, (7, DOWN), SELECT, (8, DOWN), SELECT],
+        'supervisorcomms': [QA7, QA5, (7, DOWN), SELECT, (9, DOWN), SELECT],
+        'supervisorservice': [QA7, QA5, (7, DOWN), SELECT, (10, DOWN), SELECT],
+    },
+
+    'softkeys': {
+        'QAC5': [QA5],
+        'QAC7': [QA7],
+    },
+
+    'defibcontrols': {
+        'charge': [CHRG],
+        'shock': [SHCK],
+        'energydn': [EDN],
+        'energyup': [EUP],
+    },
+
+    'patientmode': {
+        'adult': [SELECT, SELECT],
+        'pediatric': [SELECT, DOWN, SELECT],
+        'neonate': [SELECT, UP, SELECT],
+    }
+}
+
+
+def setUp():
+    """
+    """
+#    print "Starting test on 2/6/2015 at 14:34:23.12"
+    communicate_withArduino(HOME)
+    go_Home()
+
+
+def tearDown():
+    """
+    """
+#    print "Finished test on 2/6/2015 at 14:35:16.45"
+    close_connection()
+
+def go_Home():
+    """
+    Go home by pressing energy up and home button!
+    """
+    communicate_withArduino(EUP)
+    communicate_withArduino(HOME)
+    return True
+
+def iter_cmds(commands):
+    """
+    A convenience fn() to assist in creating lists from a tuple.
+    """
+    assert isinstance(commands, tuple), "`commands` must be a tuple."
+    frq, cmd = commands
+    _tmpList = []
+    for i in xrange(0, frq):
+        _tmpList.append(cmd)
+    return _tmpList
+
+def execute_cmd(commands, goHome=False, **kwargs):
+    """
+    """
+    assert isinstance(commands, list), "`commands must be an array."
+
+    if goHome:
+        go_Home()
+
+    try:
+        for relay in commands:
+            if isinstance(relay, tuple):
+                _tmpList = iter_cmds(relay)
+                execute_cmd(_tmpList, **kwargs)
+            elif relay >= 99:
+                print "An error has occured -- unable to find the menu you requested"
+                break
+            else:
+                relay = communicate_withArduino(relay) if relay != 0 else go_Home()
+
+            print relay
+            if relay == 3:
+                waitMsec(500)
+
+    except KeyboardInterrupt:
+        close_connection()
+    return True
+
+def close_connection():
+    """
+    """
+    ser.close()
+    print "cleanly closing connection"
+
+
+def communicate_withArduino(relay, printRtn=True, btnSpeed=500):
+    """
+    Communicate withe Arduino.
+
+    Args:
+        relay:  the number of the relay you want to toggle.
+    """
+    assert isinstance(relay, int), \
+        "`relay` must be an int, you passed in a {0}".format(type(relay))
+    ser.write(chr(relay))
+    waitMsec(btnSpeed)
+    return ser.readline() if printRtn else None
+
+def waitMsec(msec):
+    """
+    Sleep msecs.
+
+    Args:
+        msec:
+    """
+    assert isinstance(msec, int), \
+        "`msec` must be an int, you passed in a {0}".format(type(msec))
+    sleep(msec/1000.0)
+
+def get_commands(top, sub):
+    """
+    """
+    return navigation.get(top, 99).get(sub, 99)
+
+def main():
+    setUp()
+
+    with serial.Serial('COM4', 115200, timeout=1) as s:
+        s.write('local\r\n')
+        waitMsec(1000)
+
+        s.write('remote\r\n')
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+        execute_cmd(get_commands('defibcontrols', 'energydn'))
+
+        s.write('mode=defib\r\n')
+        waitMsec(1000)
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+        s.flushInput()
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        # print(s.readline())
+        # s.flushInput()
+        # s.write('dwavedata\r\n')
+        # waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(500)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'energyup'))
+        execute_cmd(get_commands('defibcontrols', 'charge'))
+        waitMsec(1000)
+
+        s.write('dready\r\n')
+        s.readline()
+        waitMsec(1000)
+
+        execute_cmd(get_commands('defibcontrols', 'shock'))
+
+        waitMsec(1000)
+        shockvalue = s.readline()
+        print shockvalue
+        waitMsec(1000)
+
+        with open(r"C:\Users\akhan\Desktop\example.txt", 'a') as f:
+            f.write(shockvalue)
+
+        tearDown()
+
+
+
+if __name__ == '__main__':
+    main()
